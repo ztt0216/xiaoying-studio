@@ -3,7 +3,7 @@
 用户浏览模板 → 上传图片 → 提交制作任务 → 任务在 Java 后台分三步异步执行（素材检查 → 模拟生成 → 结果整理）→ 期间可继续使用网站 → 在历史记录中查看状态、失败原因或结果图。
 不调用真实 AI：「模拟生成」把用户上传的图片按模板拼成一张图，耗时和失败都可控。
 
-> **验收版本**：tag `v1.1`（`git checkout v1.1`）。对应的提交 SHA 可以用 `git rev-parse v1.1` 查看，也会写在交付回复里。`v1.0` 是界面改版前的版本。
+> **验收版本**：tag `v1.2`（`git checkout v1.2`）。对应的提交 SHA 可以用 `git rev-parse v1.2` 查看，也会写在交付回复里。`v1.0` 是界面改版前的版本，`v1.1` 是模板封面改为版式示意之前的版本。
 
 ```bash
 cp .env.example .env        # 可选，不复制则使用相同的默认值
@@ -121,8 +121,10 @@ cd web && npm ci && npm run dev     # BACKEND_URL 默认 http://localhost:8080
 - **表结构** `db/01-schema.sql`：`app_user`、`user_token`、`template`、`asset`、`task`、`task_asset`、`task_step`。
 - **初始化数据** `db/02-data.sql`：4 个分类共 8 个模板，所需图片数为 1、2 或 3 张。其中「萌宠肖像」只接受 PNG 且不超过 2MB，「圣诞贺卡」只接受 JPEG，用来演示不同的校验规则。另外预置了演示用户 `alice`、`bob`。
 - **封面** `backend/src/main/resources/static/demo/*.png`：由 Java 以 `/demo/**` 静态资源提供。
+  - 每张封面画出该模板的成品版式，例如明信片、拍立得、三联画、画框、相册；
+  - 照片位数量与模板的 `requiredImageCount` 一致，用户看封面就知道要传几张。
 - **演示上传文件** `samples/`：`sample-1..4.jpg/png` 是正常图片；`too-large-4mb.png` 用于在 2MB 限制的模板上演示超限；`not-an-image.png` 是扩展名为 png 的文本文件，用于演示魔数校验。
-- 以上图片都是 `java tools/GenerateDemoImages.java` 生成的几何图形，没有版权问题，可以重新生成。
+- 以上图片都是 `java tools/GenerateDemoImages.java`（在仓库根目录执行）用纯几何图形绘制的，不含真实照片和文字，没有版权问题，可以重新生成。
 
 ## 6. 主要接口
 
@@ -236,7 +238,7 @@ cd web && npm ci && npm run dev     # BACKEND_URL 默认 http://localhost:8080
 
 ## 12. 部署与回滚
 
-- **部署**：`git checkout v1.1`（验收版本），然后 `docker compose up --build -d`。数据保存在命名卷中，重新构建镜像不会丢数据。
+- **部署**：`git checkout v1.2`（验收版本），然后 `docker compose up --build -d`。数据保存在命名卷中，重新构建镜像不会丢数据。
 - **回滚**：`git checkout <上一版本>`，然后再执行 `docker compose up --build -d`。数据库结构只用了 `CREATE TABLE IF NOT EXISTS`；如果以后有结构变更，应引入 Flyway 等迁移工具，并在回滚前确认迁移可逆。
 - **备份**：`docker compose exec mysql mysqldump -ustudio -pstudio studio > backup.sql`；上传文件位于 `uploads` 卷。
 

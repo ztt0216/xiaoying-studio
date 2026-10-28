@@ -535,7 +535,8 @@ img {
 
 .detail-cover {
   width: 100%;
-  aspect-ratio: 16 / 10;
+  /* 封面是成品版式示意，方形裁切能完整露出版式主体 */
+  aspect-ratio: 1 / 1;
   object-fit: cover;
   border: 10px solid var(--mat);
   box-shadow: 0 8px 24px -14px rgba(28, 32, 36, 0.35);
