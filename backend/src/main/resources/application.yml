@@ -1,0 +1,39 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: studio-backend
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/studio?useUnicode=true&characterEncoding=utf8&connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true}
+    username: ${DB_USERNAME:studio}
+    password: ${DB_PASSWORD:studio}
+  servlet:
+    multipart:
+      # 容器层面的硬上限；每个模板自己的 maxFileSizeBytes 在业务层校验
+      max-file-size: 20MB
+      max-request-size: 21MB
+  jackson:
+    time-zone: UTC
+    default-property-inclusion: non_null
+
+mybatis:
+  configuration:
+    map-underscore-to-camel-case: true
+    # 按参数名把列映射到 record 构造器（依赖 -parameters 编译参数，Spring Boot 父 POM 默认开启）
+    arg-name-based-constructor-auto-mapping: true
+
+app:
+  # 上传文件与结果图的存储根目录（Docker 中挂载为数据卷）
+  storage-dir: ${STORAGE_DIR:./data}
+  worker:
+    # 后台执行线程数：>1 时多个任务可并行，否则排队
+    threads: ${WORKER_THREADS:2}
+    queue-capacity: ${WORKER_QUEUE:200}
+  simulation:
+    # 每个阶段的模拟耗时（毫秒）
+    step-delay-ms: ${SIM_STEP_DELAY_MS:3000}
+    # 让指定阶段失败：NONE / ASSET_CHECK / GENERATE / FINALIZE
+    fail-stage: ${SIM_FAIL_STAGE:NONE}
+    # 是否开放 /api/dev/simulation 运行时调整接口
+    dev-api-enabled: ${SIM_DEV_API:true}
