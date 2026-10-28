@@ -105,7 +105,7 @@ export function UploadPanel({ template }: { template: Template }) {
     try {
       const task = await api.createTask(template.id, readyIds);
       tracker.upsert([task]);
-      setNotice(`任务 #${task.id} 已受理，正在后台处理，可继续浏览其他页面`);
+      setNotice(`第 ${task.id} 号任务已开始制作。离开这个页面也会继续处理。`);
     } catch (e) {
       setSubmitError(errorMessage(e));
     } finally {
@@ -114,18 +114,20 @@ export function UploadPanel({ template }: { template: Template }) {
     }
   }
 
-  let buttonLabel = "立即制作";
+  let buttonLabel = "开始制作";
   if (submitting) buttonLabel = "提交中…";
   else if (uploadingCount > 0) buttonLabel = "素材上传中…";
-  else if (missing > 0) buttonLabel = `还需上传 ${missing} 张图片`;
+  else if (missing > 0) buttonLabel = `还差 ${missing} 张照片`;
 
   return (
     <section aria-labelledby="upload-title" className="upload-panel">
       <div className="section-head">
-        <h2 id="upload-title">上传素材</h2>
-        <span className="muted small">
-          需要 {count} 张 · {mimeLabel(template.acceptedMimeTypes)} · 单张 ≤ {formatBytes(template.maxFileSizeBytes)}
-        </span>
+        <h2 id="upload-title">放入照片</h2>
+        <ul className="spec" aria-label="素材要求">
+          <li>{count} 张</li>
+          <li>{mimeLabel(template.acceptedMimeTypes)}</li>
+          <li>每张不超过 {formatBytes(template.maxFileSizeBytes)}</li>
+        </ul>
       </div>
       <div className={`slot-grid slots-${count}`}>
         {slots.map((slot, i) => {
@@ -148,11 +150,11 @@ export function UploadPanel({ template }: { template: Template }) {
                 }}
               />
               {slot.status === "empty" ? (
-                <button className="slot-empty" onClick={() => inputs.current[i]?.click()} aria-label={`选择第 ${n} 张图片`}>
-                  <span className="slot-icon" aria-hidden>
-                    ＋
+                <button className="slot-pick" onClick={() => inputs.current[i]?.click()} aria-label={`选择第 ${n} 张图片`}>
+                  <span className="slot-no" aria-hidden>
+                    {n}
                   </span>
-                  <span>点击上传第 {n} 张</span>
+                  <span>选择照片</span>
                 </button>
               ) : (
                 <>
@@ -163,7 +165,7 @@ export function UploadPanel({ template }: { template: Template }) {
                         <span className="spinner" aria-hidden /> 上传中 {slot.progress}%
                       </span>
                     )}
-                    {slot.status === "ready" && <span className="ok-text">✓ 已上传</span>}
+                    {slot.status === "ready" && <span className="ok-text">已上传</span>}
                     {slot.status === "error" && <span className="error-text">{slot.error}</span>}
                   </div>
                   <div className="slot-actions">

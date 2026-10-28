@@ -20,7 +20,7 @@ export function TaskList({ entries, showTemplate }: { entries: TrackedTask[]; sh
 
   return (
     <>
-      <div className="task-grid">
+      <div className="film-strip">
         {entries.map((e) => (
           <TaskCard
             key={e.task.id}
@@ -33,8 +33,8 @@ export function TaskList({ entries, showTemplate }: { entries: TrackedTask[]; sh
       </div>
       <dialog ref={dialogRef} className="dialog dialog-wide" aria-label="结果预览" onClose={() => setPreview(null)}>
         <div className="dialog-head">
-          <h2>{preview ? `${preview.templateTitle} · 任务 #${preview.id}` : ""}</h2>
-          <button className="icon-btn" aria-label="关闭预览" onClick={() => setPreview(null)}>
+          <h2>{preview ? `${preview.templateTitle}，第 ${preview.id} 号任务` : ""}</h2>
+          <button className="icon-btn" aria-label="关闭大图" onClick={() => setPreview(null)}>
             ✕
           </button>
         </div>

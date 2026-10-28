@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { formatTime } from "@/lib/format";
 import type { TrackedTask } from "@/lib/taskTracker";
 import { STAGES, stageLabel, type Task } from "@/lib/types";
@@ -8,13 +9,13 @@ import { STAGES, stageLabel, type Task } from "@/lib/types";
 function statusText(task: Task): string {
   switch (task.status) {
     case "PENDING":
-      return "等待处理";
+      return "排队中";
     case "PROCESSING":
-      return `${stageLabel(task.stage)}中…`;
+      return `${stageLabel(task.stage)}中`;
     case "SUCCEEDED":
-      return "制作完成";
+      return "已完成";
     case "FAILED":
-      return "制作失败";
+      return "未完成";
   }
 }
 
@@ -31,7 +32,9 @@ function StageTrack({ task }: { task: Task }) {
         const stateLabel = { done: "已完成", failed: "失败", active: "进行中", todo: "未开始" }[state];
         return (
           <li key={s.key} className={`stage stage-${state}`}>
-            <span className="stage-dot" aria-hidden />
+            <span className="stage-no" aria-hidden>
+              {i + 1}
+            </span>
             <span>{s.label}</span>
             <span className="sr-only">：{stateLabel}</span>
           </li>
@@ -41,6 +44,10 @@ function StageTrack({ task }: { task: Task }) {
   );
 }
 
+/**
+ * 任务以“底片”呈现：排队是未曝光的暗帧，处理中是安全灯下的负片，
+ * 成功显影为正片，失败是起雾的废片。画面本身就是状态。
+ */
 export function TaskCard({
   entry,
   onRetryQuery,
@@ -53,59 +60,64 @@ export function TaskCard({
   showTemplate?: boolean;
 }) {
   const { task, queryError, paused } = entry;
-  const thumb = task.resultUrl ?? task.inputUrls[0] ?? task.templateCoverUrl;
+  const image = task.resultUrl ?? task.inputUrls[0] ?? task.templateCoverUrl;
+  const developed = task.status === "SUCCEEDED" && task.resultUrl;
+  // 只有在本页看着它从处理中变成功的任务才播放一次“显影”过渡；载入时已完成的不播放
+  const [initialStatus] = useState(task.status);
+  const justDeveloped = developed && initialStatus !== "SUCCEEDED";
 
   return (
-    <article className={`task-card task-${task.status.toLowerCase()}`} aria-label={`任务 #${task.id}`}>
-      <div className="task-media">
-        {task.status === "SUCCEEDED" && task.resultUrl ? (
-          <button className="media-btn" onClick={() => onPreview(task)} aria-label={`预览任务 #${task.id} 的结果`}>
-            <img src={task.resultUrl} alt={`任务 #${task.id} 结果`} />
+    <article className={`frame frame-${task.status.toLowerCase()}`} aria-label={`任务 ${task.id}`}>
+      <div className="frame-edge" aria-hidden>
+        <span>{String(task.id).padStart(2, "0")}</span>
+        <span>{formatTime(task.createdAt)}</span>
+      </div>
+      <div className="frame-image">
+        {developed ? (
+          <button className="media-btn" onClick={() => onPreview(task)} aria-label={`查看任务 ${task.id} 的成品大图`}>
+            <img src={task.resultUrl!} alt={`任务 ${task.id} 成品`} className={justDeveloped ? "develop" : undefined} />
           </button>
         ) : (
           <>
-            <img src={thumb} alt="" className="dimmed" />
-            <div className="media-overlay" aria-live="polite">
-              {task.status === "FAILED" ? (
-                <span className="overlay-error">{task.errorMessage ?? "制作失败"}</span>
-              ) : (
-                <>
-                  <span className="spinner" aria-hidden />
-                  <span>{statusText(task)}</span>
-                </>
-              )}
+            <img src={image} alt="" />
+            <div className="frame-caption" aria-live="polite">
+              {task.status === "FAILED" ? task.errorMessage ?? "制作未完成" : statusText(task)}
             </div>
           </>
         )}
       </div>
-      <div className="task-body">
-        <div className="task-title-row">
+      <div className="frame-body">
+        <div className="frame-head">
           {showTemplate ? (
-            <Link href={`/templates/${task.templateId}`} className="task-title">
+            <Link href={`/templates/${task.templateId}`} className="frame-title">
               {task.templateTitle}
             </Link>
           ) : (
-            <span className="task-title">任务 #{task.id}</span>
+            <span className="frame-title">第 {task.id} 号任务</span>
           )}
-          <span className={`badge badge-${task.status.toLowerCase()}`}>{statusText(task)}</span>
+          <span className={`status status-${task.status.toLowerCase()}`}>{statusText(task)}</span>
         </div>
         <StageTrack task={task} />
         {task.status === "FAILED" && (
           <p className="error-text">
-            失败阶段：{stageLabel(task.failedStage)} · {task.errorMessage}
+            在“{stageLabel(task.failedStage)}”停止：{task.errorMessage}
           </p>
         )}
-        <p className="muted small">
-          {showTemplate && <>#{task.id} · </>}创建于 {formatTime(task.createdAt)}
-          {task.finishedAt && <> · 完成于 {formatTime(task.finishedAt)}</>}
-        </p>
+        {task.finishedAt && (
+          <dl className="frame-meta">
+            <div>
+              <dt>结束于</dt>
+              <dd>{formatTime(task.finishedAt)}</dd>
+            </div>
+          </dl>
+        )}
         {queryError && (
           <div className="query-error" role="status">
             <span>
               {queryError}
-              {paused ? "，自动查询已暂停" : "，正在重试…"}
+              {paused ? "，已停止自动刷新。" : "，稍后自动重试。"}
             </span>
-            <button className="btn btn-link" onClick={() => onRetryQuery(task.id)}>
+            <button className="btn-text" onClick={() => onRetryQuery(task.id)}>
               重新查询
             </button>
           </div>

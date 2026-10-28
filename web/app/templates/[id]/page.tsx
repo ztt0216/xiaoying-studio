@@ -32,10 +32,11 @@ export default function TemplateDetailPage() {
     <div className="detail">
       <aside className="detail-side">
         <Link href="/" className="back-link">
-          ‹ <span>{t.title}</span>
+          返回模板
         </Link>
-        <img className="detail-cover" src={t.coverUrl} alt={`${t.title} 示例封面`} />
-        <p className="muted">{t.description}</p>
+        <h1 className="detail-title">{t.title}</h1>
+        <p className="detail-desc">{t.description}</p>
+        <img className="detail-cover" src={t.coverUrl} alt={`${t.title} 示例`} />
         <RequireLogin hint="登录后即可上传素材并提交制作。">
           <UploadPanel key={t.id} template={t} />
         </RequireLogin>
@@ -55,7 +56,7 @@ function TemplateHistory({ templateId }: { templateId: string }) {
   return (
     <>
       <div className="section-head">
-        <h2 id="history-title">History</h2>
+        <h2 id="history-title">制作记录</h2>
         <button className="icon-btn" onClick={history.reload} aria-label="刷新历史记录" disabled={history.loading}>
           <span className={history.loading ? "spin" : undefined}>↻</span>
         </button>
@@ -66,7 +67,7 @@ function TemplateHistory({ templateId }: { templateId: string }) {
       ) : history.loading || !history.loaded ? (
         !history.error && <Loading label="加载历史记录…" />
       ) : (
-        <EmptyState>还没有用这个模板制作过，上传素材试试吧。</EmptyState>
+        <EmptyState>这个模板还没有制作记录。在左侧放入照片，点“开始制作”。</EmptyState>
       )}
     </>
   );

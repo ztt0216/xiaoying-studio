@@ -59,7 +59,7 @@ function History() {
         !history.error && <Loading label="加载历史记录…" />
       ) : (
         <EmptyState>
-          <p>{filter === "all" ? "还没有制作记录。" : "没有符合条件的任务。"}</p>
+          <p>{filter === "all" ? "还没有制作记录。" : "没有这个状态的任务。"}</p>
           <Link href="/" className="btn btn-ghost">
             去挑选模板
           </Link>

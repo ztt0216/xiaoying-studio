@@ -26,6 +26,7 @@ export function TemplateBrowser() {
 
   return (
     <div className="page">
+      <h1 className="page-title">选一个模板，放入你的照片</h1>
       <div className="tabs" role="tablist" aria-label="模板分类">
         {tabs.map((c) => (
           <button
@@ -43,23 +44,21 @@ export function TemplateBrowser() {
       {error ? (
         <ErrorState message={`模板加载失败：${error}`} onRetry={res.reload} />
       ) : loading && !data ? (
-        <div className="template-grid" aria-busy>
+        <div className="print-grid" aria-busy>
           {Array.from({ length: 8 }, (_, i) => (
-            <div key={i} className="template-card skeleton" />
+            <div key={i} className="print skeleton" />
           ))}
         </div>
       ) : data && data.items.length === 0 ? (
         <EmptyState>该分类下暂无模板</EmptyState>
       ) : (
-        <div className={loading ? "template-grid loading" : "template-grid"} aria-busy={loading}>
+        <div className={loading ? "print-grid loading" : "print-grid"} aria-busy={loading}>
           {data?.items.map((t) => (
-            <Link key={t.id} href={`/templates/${t.id}`} className="template-card">
+            <Link key={t.id} href={`/templates/${t.id}`} className="print">
               <img src={t.coverUrl} alt="" loading="lazy" />
-              <div className="template-meta">
-                <span className="template-title">{t.title}</span>
-                <span className="muted small">
-                  {t.category} · {t.requiredImageCount} 张图
-                </span>
+              <div className="print-caption">
+                <span className="print-title">{t.title}</span>
+                <span className="print-count">{t.requiredImageCount} 张照片</span>
               </div>
             </Link>
           ))}

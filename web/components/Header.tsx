@@ -23,9 +23,6 @@ export function Header() {
   return (
     <header className="header">
       <Link href="/" className="brand">
-        <span className="brand-logo" aria-hidden>
-          ✦
-        </span>
         小影工坊
       </Link>
       <nav className="nav" aria-label="主导航">
@@ -40,11 +37,12 @@ export function Header() {
       </nav>
       <div className="header-right">
         {active > 0 && (
-          <Link href="/history" className="pill pill-processing" aria-live="polite">
-            <span className="spinner" aria-hidden /> {active} 个任务处理中
+          <Link href="/history" className="safelight" aria-live="polite">
+            <span className="safelight-dot" aria-hidden />
+            {active} 个任务处理中
           </Link>
         )}
-        <button className="btn btn-ghost" onClick={() => setOpen(true)} aria-haspopup="dialog">
+        <button className="account-btn" onClick={() => setOpen(true)} aria-haspopup="dialog">
           {session.status === "authenticated" ? session.user.nickname : session.status === "loading" ? "…" : "登录"}
         </button>
       </div>

@@ -33,7 +33,7 @@ export function AccountDialog({ open, onClose }: { open: boolean; onClose: () =>
             <div>
               <div className="account-name">{session.user.nickname}</div>
               <div className="muted">
-                用户 ID {session.user.id} · 创建于 {formatTime(session.user.createdAt)}
+                用户 ID {session.user.id}，{formatTime(session.user.createdAt)} 加入
               </div>
             </div>
           </div>

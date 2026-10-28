@@ -3,7 +3,7 @@
 用户浏览模板 → 上传图片 → 提交制作任务 → 任务在 Java 后台分三步异步执行（素材检查 → 模拟生成 → 结果整理）→ 期间可继续使用网站 → 在历史记录中查看状态、失败原因或结果图。
 不调用真实 AI：「模拟生成」把用户上传的图片按模板拼成一张图，耗时和失败都可控。
 
-> **验收版本**：tag `v1.0`（`git checkout v1.0`）。对应的提交 SHA 可以用 `git rev-parse v1.0` 查看，也会写在交付回复里。
+> **验收版本**：tag `v1.1`（`git checkout v1.1`）。对应的提交 SHA 可以用 `git rev-parse v1.1` 查看，也会写在交付回复里。`v1.0` 是界面改版前的版本。
 
 ```bash
 cp .env.example .env        # 可选，不复制则使用相同的默认值
@@ -23,7 +23,7 @@ docker compose up --build   # 打开 http://localhost:3000
 | 运行时 | Node.js / Docker Compose | Node 22 / Compose v2 |
 
 依赖锁定：`web/package-lock.json`；Maven 版本由 Spring Boot parent 统一管理。
-没有引入额外的状态管理库、UI 库、消息队列或 Redis。
+没有引入额外的状态管理库、UI 库、消息队列或 Redis。唯一的前端附加依赖是本地打包的字体 `@fontsource/barlow-condensed`。
 
 ## 2. 项目结构
 
@@ -236,7 +236,7 @@ cd web && npm ci && npm run dev     # BACKEND_URL 默认 http://localhost:8080
 
 ## 12. 部署与回滚
 
-- **部署**：`git checkout v1.0`（验收版本），然后 `docker compose up --build -d`。数据保存在命名卷中，重新构建镜像不会丢数据。
+- **部署**：`git checkout v1.1`（验收版本），然后 `docker compose up --build -d`。数据保存在命名卷中，重新构建镜像不会丢数据。
 - **回滚**：`git checkout <上一版本>`，然后再执行 `docker compose up --build -d`。数据库结构只用了 `CREATE TABLE IF NOT EXISTS`；如果以后有结构变更，应引入 Flyway 等迁移工具，并在回滚前确认迁移可逆。
 - **备份**：`docker compose exec mysql mysqldump -ustudio -pstudio studio > backup.sql`；上传文件位于 `uploads` 卷。
 
@@ -300,3 +300,10 @@ cd web && npm ci && npm run dev     # BACKEND_URL 默认 http://localhost:8080
 - 没有复用现有的业务代码或脚手架模板，Next.js 和 Spring Boot 的工程结构是手工搭建的。
 - 依赖的开源框架见第 1 节。
 - 模板封面和演示图片由 `tools/GenerateDemoImages.java` 生成。UI 只参考了题目截图的布局，没有使用原品牌素材。
+- **视觉设计**：参考了 Anthropic 公开的 `frontend-design` skill（[anthropics/skills](https://github.com/anthropics/skills)）的设计方法，没有复用其中的代码。
+  - 方向是从“素材冲印”这个主题出发确定的，并刻意避开常见的模板化默认风格。
+  - 页面像看片灯箱，模板做成带白边的相纸，制作记录是一条胶片。
+  - 任务状态由画面本身表达：排队是暗帧，处理中是安全灯下的负片，成功显影为正片，失败是起雾的废片。
+- **字体**：
+  - 帧号和序号使用 Barlow Condensed（SIL Open Font License 1.1），通过 npm 包 `@fontsource/barlow-condensed` 打包在本地，构建时不依赖 Google Fonts；
+  - 中文使用系统自带的宋体和黑体。
