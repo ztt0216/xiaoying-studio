@@ -37,11 +37,13 @@ public class TaskController {
         return taskService.create(user, req.templateId(), req.assetIds());
     }
 
+    /** active=true 只返回未结束的任务（前端登录后用来恢复全局跟踪）。 */
     @GetMapping("/api/tasks")
     public List<TaskView> list(@RequestAttribute(AuthInterceptor.ATTR) AuthUser user,
                                @RequestParam(required = false) String templateId,
+                               @RequestParam(defaultValue = "false") boolean active,
                                @RequestParam(required = false) Integer limit) {
-        return taskService.list(user, StringUtils.hasText(templateId) ? templateId : null, limit);
+        return taskService.list(user, StringUtils.hasText(templateId) ? templateId : null, active, limit);
     }
 
     /** 只读查询：不会推进任务状态。 */

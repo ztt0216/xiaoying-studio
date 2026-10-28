@@ -83,6 +83,7 @@ export const api = {
 
   createTask: (templateId: string, assetIds: number[]) =>
     request<Task>("/api/tasks", { method: "POST", json: { templateId, assetIds } }),
+  activeTasks: (signal?: AbortSignal) => request<Task[]>("/api/tasks?active=true&limit=100", { signal }),
   task: (id: number, signal?: AbortSignal) => request<Task>(`/api/tasks/${id}`, { signal }),
   tasks: (templateId: string | null, signal?: AbortSignal) =>
     request<Task[]>(`/api/tasks${templateId ? `?templateId=${encodeURIComponent(templateId)}` : ""}`, { signal }),

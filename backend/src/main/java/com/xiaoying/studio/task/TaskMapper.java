@@ -39,11 +39,12 @@ public interface TaskMapper {
     @Select("<script>" + SELECT_TASK + """
              WHERE t.user_id = #{userId}
             <if test="templateId != null"> AND t.template_id = #{templateId}</if>
+            <if test="activeOnly"> AND t.status IN ('PENDING', 'PROCESSING')</if>
             ORDER BY t.id DESC LIMIT #{limit}
             </script>
             """)
     List<TaskRow> listOwned(@Param("userId") long userId, @Param("templateId") String templateId,
-                            @Param("limit") int limit);
+                            @Param("activeOnly") boolean activeOnly, @Param("limit") int limit);
 
     @Select("""
             <script>

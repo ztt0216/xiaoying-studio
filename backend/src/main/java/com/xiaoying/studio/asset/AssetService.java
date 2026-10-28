@@ -21,11 +21,14 @@ public class AssetService {
     private final TemplateMapper templateMapper;
     private final AssetMapper assetMapper;
     private final FileStorage storage;
+    private final FileUrlSigner signer;
 
-    public AssetService(TemplateMapper templateMapper, AssetMapper assetMapper, FileStorage storage) {
+    public AssetService(TemplateMapper templateMapper, AssetMapper assetMapper, FileStorage storage,
+                        FileUrlSigner signer) {
         this.templateMapper = templateMapper;
         this.assetMapper = assetMapper;
         this.storage = storage;
+        this.signer = signer;
     }
 
     /** 按模板要求校验（大小、魔数识别出的真实类型）后落盘并入库。 */
@@ -64,7 +67,7 @@ public class AssetService {
             asset.storagePath = relative;
             asset.url = FileStorage.urlOf(relative);
             assetMapper.insert(asset);
-            return new AssetView(asset.id, asset.url, asset.mimeType, asset.sizeBytes, asset.originalName);
+            return new AssetView(asset.id, signer.sign(asset.url), asset.mimeType, asset.sizeBytes, asset.originalName);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }

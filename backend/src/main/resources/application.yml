@@ -26,6 +26,10 @@ mybatis:
 app:
   # 上传文件与结果图的存储根目录（Docker 中挂载为数据卷）
   storage-dir: ${STORAGE_DIR:./data}
+  files:
+    # /files/** 只接受带有效签名的链接（素材与结果图按用户隔离）。生产环境务必替换密钥
+    signing-secret: ${FILE_URL_SECRET:dev-only-insecure-secret-change-me}
+    url-ttl-seconds: ${FILE_URL_TTL_SECONDS:3600}
   worker:
     # 后台执行线程数：>1 时多个任务可并行，否则排队
     threads: ${WORKER_THREADS:2}

@@ -3,6 +3,8 @@
 用户浏览模板 → 上传图片 → 提交制作任务 → 任务在 Java 后台分三步异步执行（素材检查 → 模拟生成 → 结果整理）→ 期间可继续使用网站 → 在历史记录中查看状态、失败原因或结果图。
 不调用真实 AI：「模拟生成」把用户上传的图片按模板拼成一张图，耗时和失败都可控。
 
+> **验收版本**：tag `v1.0`（`git checkout v1.0`）。对应的提交 SHA 可以用 `git rev-parse v1.0` 查看，也会写在交付回复里。
+
 ```bash
 cp .env.example .env        # 可选，不复制则使用相同的默认值
 docker compose up --build   # 打开 http://localhost:3000
@@ -105,6 +107,8 @@ cd web && npm ci && npm run dev     # BACKEND_URL 默认 http://localhost:8080
 | --- | --- | --- |
 | `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` | 本地 studio/studio | 数据库连接 |
 | `STORAGE_DIR` | `./data`（容器内 `/data`） | 上传文件与结果图根目录 |
+| `FILE_URL_SECRET` | 开发用默认值 | `/files/**` 签名链接的 HMAC 密钥，**部署时必须替换** |
+| `FILE_URL_TTL_SECONDS` | 3600 | 签名链接有效期，实际有效时长在 1～2 倍之间 |
 | `WORKER_THREADS` | 2 | 后台线程数；设为 1 时任务排队串行执行 |
 | `WORKER_QUEUE` | 200 | 等待队列长度，满了以后新任务直接标记失败 |
 | `SIM_STEP_DELAY_MS` | 3000 | 每个阶段的模拟耗时 |
@@ -133,9 +137,11 @@ cd web && npm ci && npm run dev     # BACKEND_URL 默认 http://localhost:8080
 | `GET /api/templates/{id}` | 模板详情，不存在时 404 | – | `{ id, title, category, coverUrl, description, requiredImageCount, acceptedMimeTypes, maxFileSizeBytes }` |
 | `POST /api/assets` | 上传单张素材（multipart） | `templateId`、`file` | 201 `{ id, url, mimeType, sizeBytes, originalName }`；超限返回 413，类型不符返回 415 |
 | `POST /api/tasks` | 提交制作任务，**受理后立即返回** | `{ templateId, assetIds: number[] }` | 202 `Task`（`status=PENDING`） |
-| `GET /api/tasks?templateId=&limit=` | 当前用户的历史，按创建时间倒序 | – | `Task[]` |
+| `GET /api/tasks?templateId=&active=&limit=` | 当前用户的历史，按创建时间倒序；`active=true` 只返回未结束的任务 | – | `Task[]` |
 | `GET /api/tasks/{id}` | 单个任务及阶段记录；**只读**，不推进状态 | – | `Task`（带 `steps`）；他人任务返回 404 |
 | `GET/PUT /api/dev/simulation` | 查看或修改模拟配置 | `{ stepDelayMs?, failStage? }` | `{ stepDelayMs, failStage, stages }` |
+
+`resultUrl`、`inputUrls`，以及上传接口返回的 `url`，都是带 `exp` 和 `sig` 参数的**签名链接**。只有通过已鉴权的接口才能拿到，详见第 10 节。
 
 `Task` 字段：`id, templateId, templateTitle, templateCoverUrl, status, stage, failedStage, errorMessage, resultUrl, inputUrls[], steps[], createdAt, updatedAt, startedAt, finishedAt`。
 `steps[]`：`{ stage, status: RUNNING|SUCCEEDED|FAILED, message, startedAt, finishedAt }`。
@@ -157,7 +163,7 @@ cd web && npm ci && npm run dev     # BACKEND_URL 默认 http://localhost:8080
 4. 三个阶段各自做的事：
    - **素材检查**：重新确认文件存在，用魔数识别真实类型，检查大小和数量；
    - **模拟生成**：用 `ImageIO`/`Graphics2D` 把素材拼成一张 PNG，写到 `work/`；
-   - **结果整理**：把产物移到 `results/`，生成 `/files/results/task-{id}.png`。
+   - **结果整理**：把产物移到 `results/`，文件名是随机 UUID，不能由任务 ID 推出。数据库只保存未签名的路径，接口返回时再签名。
 5. 终态保护：转为成功的 SQL 带 `WHERE status='PROCESSING'`，转为失败的 SQL 带 `WHERE status IN ('PENDING','PROCESSING')`，所以已结束的任务不会被改回处理中。查询接口只读数据库，不会推动任务前进。
 6. 关闭浏览器不影响任务，因为执行完全在 Java 线程池里进行。
 
@@ -171,7 +177,7 @@ cd web && npm ci && npm run dev     # BACKEND_URL 默认 http://localhost:8080
 | **指定阶段失败** | 打开 http://localhost:3000/dev（页面不在导航中），把“失败阶段”设为 `模拟生成` 并保存，然后提交任务：任务在模拟生成阶段失败，卡片显示失败阶段和原因，结果整理阶段不会执行。设置会一直生效，可以重复触发，直到改回“不注入失败”。也可以用命令行：`curl -X PUT localhost:8080/api/dev/simulation -H 'Content-Type: application/json' -d '{"failStage":"ASSET_CHECK"}'`，或者用环境变量 `SIM_FAIL_STAGE=FINALIZE docker compose up`。 |
 | **调整耗时** | 在 `/dev` 把每阶段耗时改成 10000ms，或设置 `SIM_STEP_DELAY_MS`，方便观察处理中状态。 |
 | **多任务互不串扰** | 在 `/dev` 设置失败阶段为 `GENERATE`，提交任务 A；改回 `NONE`，再提交任务 B。模拟配置在投递时取快照，所以 A 失败、B 成功，两张卡片的阶段、错误和结果各自独立。顶部会显示“N 个任务处理中”。设 `WORKER_THREADS=1` 可以看到任务排队（B 先停在“等待处理”）。 |
-| **刷新恢复** | 任务处理中直接刷新页面或切到“我的作品”：记录从 Java 重新拉取，未结束的任务会继续被跟踪直到结束。 |
+| **刷新恢复** | 任务处理中，在任意页面（包括首页）刷新：登录状态一确认，前端就调用 `GET /api/tasks?active=true` 拉回该用户所有未结束的任务。顶部“N 个任务处理中”马上恢复，这些任务会继续被跟踪直到结束。详情页和“我的作品”页还会各自加载完整的历史记录。 |
 | **查询异常 ≠ 任务失败** | 任务处理中执行 `docker compose stop backend`：卡片保持原来的“处理中”状态，并显示黄色提示“状态查询失败，已保留上次结果”和“重新查询”按钮。连续失败 5 次后暂停自动查询。`docker compose start backend` 后点“重新查询”即可恢复（重启会让这个任务按第 11 节的说明标记为失败）。 |
 | **上传校验** | 在「萌宠肖像」上传 `too-large-4mb.png`（超过 2MB）或任意 JPG，前端会直接提示；绕过前端直接调接口时，后端同样返回 413 或 415。`not-an-image.png` 会被后端的魔数校验拒绝。 |
 | **用户隔离** | 用 alice 提交任务后，在账户对话框里“切换”到 bob：历史为空，alice 的轮询被立即中止；切回 alice，记录又会出现。 |
@@ -185,11 +191,17 @@ cd web && npm ci && npm run dev     # BACKEND_URL 默认 http://localhost:8080
 - **每个未结束任务有独立的轮询循环**：各自的定时器、`AbortController` 和错误计数，彼此不影响。任务结束后立即停止它的轮询；没有未结束任务时不发任何请求。失败时按指数退避重试，最长间隔 15 秒，连续失败 5 次后暂停，等用户手动“重新查询”或刷新列表。
 - **防止旧数据覆盖**：终态不会被非终态覆盖；同为非终态时，以 `updatedAt` 较新的数据为准。
 - **用户切换与清理**：跟踪器按用户 ID 分实例（`key` 变化时重建），旧实例 `stop()` 会中止所有在途请求，迟到的响应会被丢弃。页面级请求（模板、历史）在离开页面或参数变化时中止。跟踪器挂在全局 Provider 上，所以离开详情页后任务仍在后台被跟踪，顶部指示器可见。
+- **刷新后统一恢复**：跟踪器 Provider 在拿到当前用户后（包括刷新页面后重新确认登录），会拉取该用户所有未结束的任务交给跟踪器。恢复不依赖用户停在哪个页面。拉取失败会按退避重试，切换用户时中止。
 - 页面状态覆盖了：模板不存在（404）、加载中（骨架屏或提示）、空数据、请求失败（带重试按钮）、未登录（引导登录）。
 
 ## 10. 用户身份与个人记录
 
 - **方案**：昵称登录。输入昵称后，若不存在就创建（`app_user`），然后签发随机 UUID 令牌（`user_token`）。前端把令牌存在 localStorage，每个请求带 `Authorization: Bearer`。Java 拦截器解析出当前用户；素材、任务的读写都带 `user_id` 条件，访问他人的任务返回 404。
+- **文件隔离**：素材和结果图通过 `/files/**` 访问，`<img>` 无法携带 Authorization 头，所以采用签名链接：
+  - 已鉴权的接口返回带 `exp`（过期时间）和 `sig`（`HMAC-SHA256(路径|exp)`）的地址；
+  - `FileAccessFilter` 在请求到达静态资源处理器前校验签名，缺少签名、签名被篡改或已过期都返回 403；
+  - 过期时间按 TTL 对齐到时间桶，同一桶内同一文件的 URL 不变，轮询时图片不会重复加载；
+  - 文件名本身也是随机 UUID。
 - **取舍**：题目不要求额外的身份服务，所以没有做密码。这个方案能明确区分“谁的任务”，也能演示切换用户。正式环境需要换成密码/OAuth + 过期令牌（HttpOnly Cookie）。
 - **演示**：右上角按钮打开账户对话框，可以看到昵称、ID、创建时间，也可以切换用户或退出。预置了 `alice` 和 `bob`，也可以输入任意新昵称。
 
@@ -202,7 +214,10 @@ cd web && npm ci && npm run dev     # BACKEND_URL 默认 http://localhost:8080
 - **重启不续跑**：线程池在内存中，进程重启后不会续跑。`StartupRecovery` 在启动时把遗留的 PENDING/PROCESSING 任务标记为 FAILED（原因：“服务重启，任务已中断，请重新提交”），这样前端不会一直显示处理中。这个做法假设只有一个后端实例；多实例部署需要租约或心跳字段，或者引入真正的队列。
 - **模拟配置不持久**：运行时修改的模拟配置只保存在内存，重启后恢复为环境变量的值。
 - **提交幂等**：前端已防止重复点击，但后端没有幂等键。要做的话，可以加 `client_request_id` 并在 `(user_id, client_request_id)` 上建唯一索引。
-- **文件访问控制**：`/files/**`（素材与结果）不鉴权，依靠随机 UUID 文件名，因为 `<img>` 无法携带 Authorization 头。正式环境应改为签名 URL 或 Cookie 鉴权。
+- **文件访问控制**：`/files/**` 已改为签名链接加随机文件名（见第 10 节），但仍有以下边界：
+  - 签名链接在有效期内（1～2 小时）可以被转发，拿到链接的人在过期前都能查看；
+  - 退出登录不会让已经签出的链接立即失效；
+  - 若需要即时撤销，应改为 Cookie 会话鉴权，或由后端按用户校验后再输出文件。
 - **未做的内容**：未清理孤儿素材文件；未做任务删除、下载、重新制作（题目不要求）；没有端到端浏览器测试（题目不要求），前端测试只覆盖状态管理核心。
 - **身份方案**：见第 10 节，令牌不会过期。
 
@@ -215,13 +230,13 @@ cd web && npm ci && npm run dev     # BACKEND_URL 默认 http://localhost:8080
 - 本地 MySQL 联调、浏览器实测、Docker Compose 冷启动验证：约 20%；
 - CI 与 README：约 10%。
 
-阅读题目、审阅代码和补充说明的人工时间不包含在上述数字内：_（请补充）_。
+另外，人工投入约 1 小时，用于阅读题目、审阅代码、实际运行，以及对照评审意见提出修改。
 
 **取舍**：时间优先投入题目的两个重点（后端多步骤异步、前端异步状态），并且每条路径都做了真实运行验证。幂等提交、断点续跑、文件鉴权、令牌过期这几项只做了上面列出的说明，没有实现。
 
 ## 12. 部署与回滚
 
-- **部署**：`git checkout <验收 commit>`，然后 `docker compose up --build -d`。数据保存在命名卷中，重新构建镜像不会丢数据。
+- **部署**：`git checkout v1.0`（验收版本），然后 `docker compose up --build -d`。数据保存在命名卷中，重新构建镜像不会丢数据。
 - **回滚**：`git checkout <上一版本>`，然后再执行 `docker compose up --build -d`。数据库结构只用了 `CREATE TABLE IF NOT EXISTS`；如果以后有结构变更，应引入 Flyway 等迁移工具，并在回滚前确认迁移可逆。
 - **备份**：`docker compose exec mysql mysqldump -ustudio -pstudio studio > backup.sql`；上传文件位于 `uploads` 卷。
 
@@ -266,6 +281,14 @@ cd web && npm ci && npm run dev     # BACKEND_URL 默认 http://localhost:8080
 
 - 模板标题返回乱码。查十六进制后确认是初始化 SQL 按 latin1 执行，中文被双重编码。修复方法是在脚本开头加 `SET NAMES utf8mb4`。
 - 按分类筛选返回 500。日志显示 MyBatis 注解中用文本块拼接 SQL 时少了一个空格，变成 `SELECTid`。修正后重建数据库并重新验证。
+
+**例子：根据评审意见修改**
+
+首次提交后，按 R-13 对照检查，发现三处不足，于是交给 AI 修改：
+
+- **刷新只在部分页面恢复**：只有详情页和历史页会拉取任务，在首页刷新后要进入这两个页面才能恢复跟踪。改为登录确认后全局拉取未结束的任务，后端新增 `active=true` 参数。
+- **结果图可被枚举访问**：结果图命名为 `task-{id}.png` 且不需要鉴权，README 里“依靠随机文件名”的说法对它不成立。改为随机文件名加 HMAC 签名链接，并新增 `FileUrlSignerTest`，同时修正 README 的描述。
+- **交付信息不全**：README 里的人工投入还是占位文字，也没有注明验收版本。补上了人工投入时间，并用 tag `v1.0` 标注验收版本。
 
 其他修正：
 

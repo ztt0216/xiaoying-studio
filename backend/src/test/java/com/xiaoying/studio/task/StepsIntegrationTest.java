@@ -44,10 +44,13 @@ class StepsIntegrationTest {
                 SimulationConfig.NONE);
 
         assertThat(recorder.status).isEqualTo(TaskStatus.SUCCEEDED);
-        assertThat(recorder.resultUrl).isEqualTo("/files/results/task-7.png");
-        BufferedImage out = ImageIO.read(storage.resolve("results/task-7.png").toFile());
+        // 结果文件名随机，不能由任务 ID 推出
+        assertThat(recorder.resultUrl).matches("/files/results/[0-9a-f-]{36}\\.png").doesNotContain("task-7");
+        BufferedImage out = ImageIO.read(storage.resolve(recorder.resultUrl.substring("/files/".length())).toFile());
         assertThat(out.getWidth()).isGreaterThan(out.getHeight());
-        assertThat(Files.exists(storage.resolve("work/task-7.png"))).isFalse();
+        try (var work = Files.list(storage.resolve("work"))) {
+            assertThat(work).isEmpty();
+        }
     }
 
     @Test

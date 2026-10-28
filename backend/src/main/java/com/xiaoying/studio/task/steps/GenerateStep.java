@@ -12,6 +12,7 @@ import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.UUID;
 import javax.imageio.ImageIO;
 import org.springframework.stereotype.Component;
 
@@ -58,7 +59,7 @@ public class GenerateStep implements PipelineStep {
         } finally {
             g.dispose();
         }
-        Path out = storage.resolve("work/task-" + ctx.taskId() + ".png");
+        Path out = storage.resolve("work/" + UUID.randomUUID() + ".png");
         try {
             ImageIO.write(canvas, "png", out.toFile());
         } catch (IOException e) {

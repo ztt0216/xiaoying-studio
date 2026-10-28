@@ -27,7 +27,7 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        // 上传素材与结果图：文件名为随机 UUID，不做鉴权（见 README 已知限制）
+        // 上传素材与结果图：访问前由 FileAccessFilter 校验签名
         String location = Path.of(props.storageDir()).toAbsolutePath().normalize().toUri().toString();
         registry.addResourceHandler("/files/**").addResourceLocations(location);
     }

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # 通过 Next.js 代理（默认 http://localhost:3000）走一遍核心流程：
-# 登录 → 上传 → 提交 A（模拟 GENERATE 失败）→ 提交 B（成功）→ 轮询到终态 → 用户隔离检查。
+# 登录 → 上传 → 提交 A（模拟 GENERATE 失败）→ 提交 B（成功）→ 轮询到终态 → 文件签名与用户隔离检查。
 # 依赖：curl、python3。用法：scripts/smoke-test.sh [base_url]
 set -euo pipefail
 BASE=${1:-http://localhost:3000}
@@ -32,6 +32,7 @@ done
 curl -sf "${AUTH[@]}" "$BASE/api/tasks/$TA" | json '"A 失败阶段=%s 原因=%s" % (d["failedStage"], d["errorMessage"])'
 RESULT=$(curl -sf "${AUTH[@]}" "$BASE/api/tasks/$TB" | json 'd["resultUrl"]')
 echo "B 结果=$RESULT  HTTP $(curl -s -o /dev/null -w '%{http_code} %{content_type}' "$BASE$RESULT")"
+echo "== 去掉签名访问结果图: HTTP $(curl -s -o /dev/null -w '%{http_code}' "$BASE${RESULT%%\?*}")（预期 403）"
 
 OTHER=$(curl -sf -X POST "$BASE/api/session" -H 'Content-Type: application/json' -d '{"nickname":"smoke-other"}' | json 'd["token"]')
 echo "== 其他用户读取任务 A: HTTP $(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $OTHER" "$BASE/api/tasks/$TA")（预期 404）"

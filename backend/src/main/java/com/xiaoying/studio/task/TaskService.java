@@ -2,6 +2,7 @@ package com.xiaoying.studio.task;
 
 import com.xiaoying.studio.asset.AssetMapper;
 import com.xiaoying.studio.asset.AssetRow;
+import com.xiaoying.studio.asset.FileUrlSigner;
 import com.xiaoying.studio.auth.AuthUser;
 import com.xiaoying.studio.common.ApiException;
 import com.xiaoying.studio.simulation.SimulationConfig;
@@ -28,14 +29,16 @@ public class TaskService {
     private final AssetMapper assetMapper;
     private final TaskDispatcher dispatcher;
     private final SimulationSettings simulation;
+    private final FileUrlSigner signer;
 
     public TaskService(TaskMapper taskMapper, TemplateMapper templateMapper, AssetMapper assetMapper,
-                       TaskDispatcher dispatcher, SimulationSettings simulation) {
+                       TaskDispatcher dispatcher, SimulationSettings simulation, FileUrlSigner signer) {
         this.taskMapper = taskMapper;
         this.templateMapper = templateMapper;
         this.assetMapper = assetMapper;
         this.dispatcher = dispatcher;
         this.simulation = simulation;
+        this.signer = signer;
     }
 
     /**
@@ -87,7 +90,7 @@ public class TaskService {
             }
         });
         TaskRow row = taskMapper.findById(taskId);
-        return TaskView.of(row, assetIds.stream().map(id -> owned.get(id).url()).toList(), List.of());
+        return TaskView.of(row, assetIds.stream().map(id -> owned.get(id).url()).toList(), List.of(), signer::sign);
     }
 
     public TaskView get(AuthUser user, long id) {
@@ -96,18 +99,18 @@ public class TaskService {
             throw ApiException.notFound("任务不存在");
         }
         List<String> inputs = taskMapper.findInputs(List.of(id)).stream().map(TaskInputRow::url).toList();
-        return TaskView.of(row, inputs, taskMapper.findSteps(id));
+        return TaskView.of(row, inputs, taskMapper.findSteps(id), signer::sign);
     }
 
-    public List<TaskView> list(AuthUser user, String templateId, Integer limit) {
+    public List<TaskView> list(AuthUser user, String templateId, boolean activeOnly, Integer limit) {
         int size = limit == null ? 50 : Math.max(1, Math.min(limit, MAX_LIST));
-        List<TaskRow> rows = taskMapper.listOwned(user.id(), templateId, size);
+        List<TaskRow> rows = taskMapper.listOwned(user.id(), templateId, activeOnly, size);
         if (rows.isEmpty()) {
             return List.of();
         }
         Map<Long, List<String>> inputs = taskMapper.findInputs(rows.stream().map(TaskRow::id).toList()).stream()
                 .collect(Collectors.groupingBy(TaskInputRow::taskId,
                         Collectors.mapping(TaskInputRow::url, Collectors.toList())));
-        return rows.stream().map(r -> TaskView.of(r, inputs.getOrDefault(r.id(), List.of()), null)).toList();
+        return rows.stream().map(r -> TaskView.of(r, inputs.getOrDefault(r.id(), List.of()), null, signer::sign)).toList();
     }
 }

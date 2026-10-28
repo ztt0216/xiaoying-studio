@@ -27,6 +27,7 @@ services:
       DB_USERNAME: ${MYSQL_USER:-studio}
       DB_PASSWORD: ${MYSQL_PASSWORD:-studio}
       STORAGE_DIR: /data
+      FILE_URL_SECRET: ${FILE_URL_SECRET:-dev-only-insecure-secret-change-me}
       SIM_STEP_DELAY_MS: ${SIM_STEP_DELAY_MS:-3000}
       SIM_FAIL_STAGE: ${SIM_FAIL_STAGE:-NONE}
       WORKER_THREADS: ${WORKER_THREADS:-2}
